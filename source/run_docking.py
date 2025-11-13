@@ -9,6 +9,7 @@ from pathlib import Path
 from rdkit import Chem
 from rdkit.Chem import AllChem
 import rdkit
+import subprocess
 
 print("rdkit version:", rdkit.__version__)
 
@@ -57,17 +58,49 @@ def prepare_ligand(ligand_smiles, ph = 6, skip_tautomer=False, skip_acidbase=Fal
 
     ligand_name = re.sub(r'-', '_', ligand_name)
     ligandSDF = f"{ligand_name}_scrubbed.sdf"
-    # Scrub the molecule 
+    # Scrub the molecule
+
     os.system(f'python {scrub} "{ligand_smiles}" -o {ligandSDF} --ph {ph} {args}')
 
     # Runs meeko mk_prepare_ligand with the following arguments
     os.system(f'python {mk_prepare_ligand} -i ../data/{ligandSDF} -o ../data/{ligand_name}.pdbqt')
 
+def prepare_receptor(pdb_path : Path, center_coords, box_sizes):
+    # Export receptor atoms
+    center_x, center_y, center_z = center_coords
+    size_x, size_y, size_z = box_sizes
+
+    command = [
+        "python",
+        str(mk_prepare_receptor),
+        "-i", str(pdb_path),
+        "-o", f'../data/docking_files/{pdb_path.stem}_prepared',
+        "-p",  # Generate PDBQT file
+        "-v",  # Generate Vina config
+        "--box_center", str(center_x), str(center_y), str(center_z),
+        "--box_size", str(size_x), str(size_y), str(size_z)
+    ]
+
+    subprocess.run(command, check=True)
+
 def dock_ligands(args):
+    if not os.path.exists('../data/docking_files'):
+        os.makedirs('../data/docking_files')
+
     ligands = pd.read_csv(args.ligands_path, sep='\t')
     pdbs = list(Path(args.pdbs_path).rglob('*.pdb'))
-    for name, smiles in zip(ligands['name'], ligands['smiles']):
-        prepare_ligand(smiles, ligand_name=name)
+    # for name, smiles in zip(ligands['name'], ligands['smiles']):
+    #     prepare_ligand(smiles, ligand_name=name)
+
+    for pdb in pdbs:
+        name = pdb.name
+        try:
+            pockets = pd.read_csv(f'../p2rank_output/{name}.pdb_predictions.csv')
+        except FileExistsError:
+            raise FileExistsError(f'Predictions for {name} not found. Use run_p2rank.py to generate the pocket predictions first.')
+        
+        best = pockets.sort_values('score').iloc[0]
+        prepare_receptor(pdb, (best['center_x'], best['center_y'], best['center_z']), (args.box_size, args.box_size, args.box_size))
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -77,6 +110,7 @@ if __name__ == '__main__':
     parser.add_argument('--ph', default=6, type=int, help='pH for ligand preparation')
     parser.add_argument('--skip_tautomer', action='store_true', help='Skip tautomers in ligand preparation')
     parser.add_argument('--skip_acidbase', action='store_true', help='Skip acidbase in ligand preparation')
+    parser.add_argument('--box_size', type=int, default=40, help='Box size in angstroms for docking. Default is the Prankweb value.')
 
     args = parser.parse_args()
     dock_ligands(args)
