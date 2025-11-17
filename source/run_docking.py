@@ -58,7 +58,7 @@ def prepare_ligand(ligand_smiles, ph = 6, skip_tautomer=False, skip_acidbase=Fal
         args += "--skip_acidbase "
 
     ligand_name = re.sub(r'-', '_', ligand_name)
-    ligandSDF = f"{ligand_name}_scrubbed.sdf"
+    ligandSDF = f"../data/temp/{ligand_name}_scrubbed.sdf"
     output_path = f'../data/prepared_ligands/{ligand_name}.pdbqt'
     # Scrub the molecule
     subprocess.run([
@@ -73,17 +73,49 @@ def prepare_ligand(ligand_smiles, ph = 6, skip_tautomer=False, skip_acidbase=Fal
 
     return Path(output_path)
 
+def standardize_name(ligand_name):
+    ligand_name = re.sub(r'\'"', '', ligand_name)
+    return re.sub(r'[-, ]', '_', ligand_name)
 
-def prepare_ligands(args) -> list[Path]:
+def prepare_ligands(args):
     ligands = pd.read_csv(args.ligands_path, sep='\t')
+    ligands = ligands.reindex(['smiles', 'name'], axis=1)
+    ligands['name'] = ligands['name'].apply(standardize_name)
+
+    batch = False
+    if ligands.shape[0] > 1:
+        batch = True
+
     if not os.path.exists('../data/prepared_ligands'):
         os.makedirs('../data/prepared_ligands')
-    lig_paths = []
-    
-    for name, smiles in zip(ligands['name'], ligands['smiles']):
-        lig_paths.append(prepare_ligand(smiles, ligand_name=name))
 
-    return lig_paths
+    if not os.path.exists('../data/temp'):
+        os.makedirs('../data/temp')
+    
+    if batch:
+        smi_path = '../data/temp/ligands.smi'
+        sdf_path = '../data/temp/ligand_batch.sdf'
+        ligands.to_csv(smi_path, sep=' ', header=False, index=False)
+        output_path = f'../data/prepared_ligands/'
+        scrub_additional_args = ''
+        if args.skip_tautomer:
+            scrub_additional_args += '--skip_tautomer '
+        if args.skip_acidbase:
+            scrub_additional_args += '--skip_acidbase '
+
+        # Scrub the molecules
+        subprocess.run([
+            'python', str(scrub), smi_path, '-o', sdf_path, '--ph', str(args.ph) + scrub_additional_args
+        ], check=True, shell=True)
+
+        subprocess.run([
+            'python', str(mk_prepare_ligand), '-i', sdf_path, '--multimol_outdir', output_path
+        ], check=True, shell=True)
+        
+    else:
+        prepare_ligand(ligands['smiles'], ligand_name=ligands['name'])
+
+    return ligands['name']
 
 def prepare_receptor(pdb_path : Path, center_coords, box_sizes) -> list[Path]:
     # Export receptor atoms
@@ -101,7 +133,7 @@ def prepare_receptor(pdb_path : Path, center_coords, box_sizes) -> list[Path]:
         "--box_size", str(size_x), str(size_y), str(size_z)
     ]
 
-    subprocess.run(command, check=True)
+    subprocess.run(command, check=True, shell=True)
 
     return (Path(f'../data/docking_files/{pdb_path.stem}_prepared.pdbqt'), Path(f'../data/docking_files/{pdb_path.stem}_prepared.box.txt'))
 
@@ -120,7 +152,7 @@ def prepare_receptors(args) -> list[tuple[Path, Path]]:
     
     return out
 
-def dock_ligands(receptor_info : list[tuple[Path, Path]], lig_paths : list[Path]):
+def dock_ligands(receptor_info : list[tuple[Path, Path]], lig_names : list[Path]):
     if not os.path.exists('../data/docking_files'):
         os.makedirs('../data/docking_files')
 
@@ -128,20 +160,26 @@ def dock_ligands(receptor_info : list[tuple[Path, Path]], lig_paths : list[Path]
         os.mkdir('../output')
 
     for receptor, config in receptor_info:
-        for ligand in lig_paths:
-            subprocess.run([
-                str(vina),
-                '--receptor', str(receptor),
-                '--ligand', str(ligand),
-                '--config', str(config),
-                f'--exhaustiveness={args.e}',
-                '--out', f'../output/{receptor.stem}_{ligand.stem}'
-            ])
+        for ligand in lig_names:
+            for path in glob(f'../data/prepared_ligands/{ligand}*.pdbqt'):
+                lig_stem = Path(path).stem
+                out_path = f'../output/{receptor.stem}_{lig_stem}.pdbqt'
+                print(f'Docking {lig_stem} to {receptor.stem}...')
+                command = ' '.join([
+                    str(vina),
+                    '--receptor', str(receptor),
+                    '--ligand', str(path),
+                    '--config', str(config),
+                    f'--exhaustiveness={args.exhaustiveness}',
+                    '--out', out_path
+                ])
+                subprocess.run(command, shell=True, check=True)
+                print(f'Output saved to {out_path}')
 
 def run_docking(args):
-    lig_paths = prepare_ligands(args)
+    lig_names = prepare_ligands(args)
     receptor_info = prepare_receptors(args)
-    dock_ligands(receptor_info, lig_paths)
+    dock_ligands(receptor_info, lig_names)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -150,8 +188,8 @@ if __name__ == '__main__':
     parser.add_argument('--ligands_path', default='../data/ligands.csv', help='Path to ligands')
     parser.add_argument('--ph', default=6, type=int, help='pH for ligand preparation')
     parser.add_argument('--skip_tautomer', action='store_true', help='Skip tautomers in ligand preparation')
-    parser.add_argument('--skip_acidbase', action='store_true', help='Skip acidbase in ligand preparation')
-    parser.add_argument('--box_size', type=int, default=40, help='Box size in angstroms for docking. Default is the Prankweb value.')
+    parser.add_argument('--skip_acidbase', action='store_true', help='Skip acid/base conjugates in ligand preparation')
+    parser.add_argument('--box_size', type=int, default=40, help='Box size in Å for docking. Default is the Prankweb value of 40Å.')
     parser.add_argument('-e', '--exhaustiveness', type=int, default=32, help='Search exhaustiveness for Vina')
 
     args = parser.parse_args()
