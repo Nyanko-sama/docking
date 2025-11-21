@@ -2,39 +2,21 @@ import re
 import argparse
 import os
 import pandas as pd
-import sys, platform
+import sys
+import numpy as np
+from Bio.PDB import PDBParser
 from glob import glob
 from prody import *
 from pathlib import Path
-from rdkit import Chem
-from rdkit.Chem import AllChem
+from utils import locate_file
 import rdkit
 import subprocess
 
 print("rdkit version:", rdkit.__version__)
 
-# Helper functions
-def locate_file(from_path : Path = None, query_path = None, query_name = "query file"):
-
-    if not from_path or not query_path:
-        raise ValueError("Must specify from_path and query_path")
-
-
-    possible_path = list(from_path.rglob(query_path))
-
-    if not possible_path:
-        raise FileNotFoundError(f"Cannot find {query_name} from {from_path} by {query_path}")
-
-    return_which = (
-        f"using {query_name} at:\n"
-        f"{possible_path[0]}\n"
-    )
-    print(return_which)
-
-    return possible_path[0]
-
 
 # Commandline scripts
+
 if sys.platform == 'linux':
     path_root = Path("/usr/local/bin")
 elif sys.platform == 'win32':
@@ -137,8 +119,12 @@ def prepare_receptor(pdb_path : Path, center_coords, box_sizes) -> list[Path]:
 
     return (Path(f'../data/docking_files/{pdb_path.stem}_prepared.pdbqt'), Path(f'../data/docking_files/{pdb_path.stem}_prepared.box.txt'))
 
+def find_best_pocket(pdb, pockets):
+    return pockets.sort_values('score').iloc[0]
+
 def prepare_receptors(args) -> list[tuple[Path, Path]]:
     pdbs = list(Path(args.pdbs_path).rglob('*.pdb'))
+    parser = PDBParser()
     out = []
     for pdb in pdbs:
         name = pdb.stem
@@ -147,8 +133,27 @@ def prepare_receptors(args) -> list[tuple[Path, Path]]:
         except FileNotFoundError:
             raise FileExistsError(f'Predictions for {name} not found. Use run_p2rank.py to generate the pocket predictions first.')
         
-        best = pockets.sort_values('score').iloc[0]
-        out.append(prepare_receptor(pdb, (best['center_x'], best['center_y'], best['center_z']), (args.box_size, args.box_size, args.box_size)))
+        best = find_best_pocket(pdb, pockets)
+        molecule = parser.get_structure(pdb.stem, pdb)
+        residues = list(molecule.get_residues())
+        center = best['center_x'], best['center_y'], best['center_z']
+        center_np = np.asarray(center)
+        max_dist = 0
+
+        # Find the furthest atom from the center for correct box size
+        for residue in best['residue_ids'].split(' '):
+            idx = int(residue[2:])
+            max_dist_atom = 0
+            for atom in residues[idx].get_atoms():
+                c_dist = np.sum((atom.get_coord() - center_np) ** 2)
+                if c_dist > max_dist_atom:
+                    max_dist_atom = c_dist
+
+            if max_dist_atom > max_dist:
+                max_dist = max_dist_atom
+
+        box_size = np.sqrt(max_dist) + 2 # 2A padding
+        out.append(prepare_receptor(pdb, center, (box_size, box_size, box_size)))
     
     return out
 
@@ -186,10 +191,10 @@ if __name__ == '__main__':
     parser.add_argument('--pocket_preds_path', default='../data/p2rank_output', help='P2rank pocket predictions output path')
     parser.add_argument('--pdbs_path', default='../data/pdbs', help='Path to the directory where .pdb files are stored')
     parser.add_argument('--ligands_path', default='../data/ligands.csv', help='Path to the ligands csv file. Should contain fields "smiles" and "name".')
-    parser.add_argument('--ph', default=6, type=int, help='pH for ligand preparation')
+    parser.add_argument('--ph', default=7, type=int, help='pH for ligand preparation')
     parser.add_argument('--skip_tautomer', action='store_true', help='Skip tautomers in ligand preparation')
     parser.add_argument('--skip_acidbase', action='store_true', help='Skip acid/base conjugates in ligand preparation')
-    parser.add_argument('--box_size', type=int, default=20, help='Box size in Å for docking. Prankweb has a default of 40Å, here 20Å is used, same as default in Vina.')
+    # parser.add_argument('--box_size', type=int, default=20, help='Box size in Å for docking. Prankweb has a default of 40Å, here 20Å is used, same as default in Vina.')
     parser.add_argument('-e', '--exhaustiveness', type=int, default=32, help='Search exhaustiveness for Vina')
 
     args = parser.parse_args()

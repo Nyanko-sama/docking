@@ -23,9 +23,11 @@ def download_pdbs(ids, key):
             pdb_url = data['pdbUrl']
             
             r = requests.get(pdb_url)
-            
-            with open(f'../data/pdbs/{prot_id}.pdb', 'wb') as f:
+            path = f'../data/pdbs/{prot_id}.pdb'
+            with open(path, 'wb') as f:
                 f.write(r.content)
+
+            print(f'{prot_id} saved to {path}')
 
         else:
             print(f'Protein {prot_id} not found in the AlphaFold database, skipped. Received response {r.status_code}')
