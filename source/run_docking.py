@@ -12,6 +12,8 @@ from glob import glob
 from prody import *
 from pathlib import Path
 from utils import locate_file, l2_norm
+from pdbfixer import PDBFixer
+from openmm.app import PDBFile
 import rdkit
 import subprocess
 #import
@@ -210,6 +212,13 @@ def calculate_box_size(residues, center, pocket):
 
     return max_dist + 2 # 2A padding
 
+def protonate_pdb(pdb_path : Path, ph=7):
+    fixer = PDBFixer(str(pdb_path))
+    fixer.addMissingHydrogens(ph)
+    out_path = f'../data/temp/{pdb_path.stem}_H.pdb'
+    PDBFile.writeFile(fixer.topology, fixer.positions, open(out_path, 'w'))
+    return out_path
+
 def prepare_receptors(args) -> list[tuple[Path, Path]]:
     pdbs = list(Path(args.pdbs_path).rglob('*.pdb'))
     parser = PDBParser()
@@ -228,7 +237,8 @@ def prepare_receptors(args) -> list[tuple[Path, Path]]:
         except FileNotFoundError:
             raise FileExistsError(f'Predictions for {name} not found. Use run_p2rank.py to generate the pocket predictions first.')
 
-        molecule = parser.get_structure(pdb.stem, pdb)
+        h_path = protonate_pdb(pdb, args.ph)
+        molecule = parser.get_structure(pdb.stem, h_path)
 
         # Determine the pocket for docking        
         best = find_best_pockets(molecule, pockets, msa, id_to_msa_index, target_indices, tol=args.tol, mode=args.pocket_selection_mode)
