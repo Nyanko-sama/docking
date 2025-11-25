@@ -31,23 +31,30 @@ cd source
 1. Download PDBs from AFDB via `source/download_pdbs.py`. 
     - This script requires a `.csv`containing the Uniprot IDs of requested receptors, inside a column named `uniprot_id`.
     - Default path is `data/prots.csv`
-    - If you already have downloaded PDBs, place them into `data/pdbs`.
+    - If you already have PDBs downloaded, place them into `data/pdbs`.
 2. Predict pockets with P2rank using `source/run_p2rank.py`.
     -  By default, the script gathers the paths of all `.pdb` files in `data/pdbs`, runs P2rank, and deposits the results into `data/p2rank_output`
-
-3. Dock ligands into predicted pockets with `source/run_docking.py`. 
+4. Prepare ligands using `source/prepare_ligands.py`.
     - This script requires a `.csv` file containing the following fields: `name` and `smiles`. `name` is the name of the ligand, and `smiles` is its smiles string.
     - Default location of this file is `data/ligands.csv`
-    - If you wish to skip isomers of ligands, use the `--skip_tautomer` and `--skip_acidbase` arguments 
-    - The script handles both ligand and receptor preparation, including docking pocket selection.
+    - If you wish to skip isomers, use the `--skip_tautomer` and `--skip_acidbase` arguments
+
+5. Prepare receptors using `source/prepare_receptors.py`
+
+    - This script handles receptor preparation, including addition of hydrogen atoms and docking pocket selection.
         - We estimated the residues close to the external part of the membrane by computing the MSA of the proteins from `prots.csv` via `source/extract_sequences.py` and `align_sequences.py`. Then, we inspected the alignment and chose a few subsets of global MSA indices that roughly corresponded to residues near the relevant region in multiple proteins. 
         - Pocket selection for docking has a few modes, the default one is `close_all`. It works as follows:
-            - First, it matches the selected indices from the global MSA to residues in the given protein
-            - Then, it computes a centroid from the selected residues, which is hopefully close to the external part of the membrane
+            - First, selected indices from the global MSA are matched to residues in the given protein
+            - Then, a centroid is computed from the selected residues, which is hopefully close to the external part of the membrane
             - For each pocket, it computes the distance between the closest atom in the pocket and the centroid
             - If the pocket is close enough (<= 20 A), it is considered for docking
-            - use `python run_docking.py -h` to get information about the other modes
+        - use `python run_docking.py -h` to get information about the other modes
+    - Pocket size is computed automatically according to the p2rank pocket prediction
+    - Each protonated receptor-pocket pair is then passed to `mk_prepare_receptor.py`
+    - Prepared receptors and vina configs are stored in `data/docking_files` by default
+3. Dock ligands into predicted pockets with `source/run_docking.py`. 
 
-    - After all ligands and receptors are prepared, it runs the AutoDock Vina 4 using the Vina forcefield
+
+    - After the receptors are prepared, it runs the AutoDock Vina 4 using the Vina forcefield on each combination of receptor and ligand.
     - Outputs are deposited in the `output/` folder
         - each pocket has its own subfolder (e.g. `output/output/A0A067XG43_p1` for pocket with rank 1 from the P2rank prediction) containing the `.pdbqt` files of docked ligands
