@@ -29,7 +29,7 @@ def prepare_receptor(pdb_path : Path, pocket_id, center_coords, box_sizes) -> li
         "--box_size", str(size_x), str(size_y), str(size_z)
     ]
 
-    subprocess.run(command, check=True, shell=True)
+    subprocess.run(command, check=True)
 
     return (Path(f'{out_path}.pdbqt'), Path(f'{out_path}.box.txt'))
 
