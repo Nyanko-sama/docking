@@ -59,7 +59,7 @@ def prepare_ligands(args):
         sdf_path = '../data/temp/ligand_batch.sdf'
         ligands.to_csv(smi_path, sep=' ', header=False, index=False)
         output_path = f'../data/prepared_ligands/'
-        scrub_additional_args = ' '
+        scrub_additional_args = ''
         if args.skip_tautomers:
             scrub_additional_args += '--skip_tautomers '
         if args.skip_acidbase:
@@ -67,9 +67,11 @@ def prepare_ligands(args):
 
         # Scrub the molecules
         print('running scrub')
-        subprocess.run([
-            'python', str(scrub), smi_path, '-o', sdf_path, '--ph', str(args.ph), scrub_additional_args
-        ], check=True)
+        scrub_cmd = ['python', str(scrub), smi_path, '-o', sdf_path, '--ph', str(args.ph)]
+        if len(scrub_additional_args) > 0:
+            scrub_cmd.extend(scrub_additional_args.split(' '))
+        
+        subprocess.run(scrub_cmd, check=True)
         print('running mk')
         subprocess.run([
             'python', str(mk_prepare_ligand), '-i', sdf_path, '--multimol_outdir', output_path
