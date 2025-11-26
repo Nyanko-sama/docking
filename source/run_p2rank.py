@@ -1,11 +1,7 @@
 import os
 import argparse
 import glob
-from molscrub import Scrub
-from rdkit import Chem
-import sys
-import pandas as pd
-import re
+import subprocess
 
 def create_ds_file(pdbs_path):
     paths = glob.glob(f'{pdbs_path}/*.pdb')
@@ -16,7 +12,12 @@ def run_p2rank(p2rank_path, ds_path, outputd_dir):
     if not os.path.exists(outputd_dir):
         os.mkdir(outputd_dir)
 
-    os.system(f'{p2rank_path}\\prank predict {ds_path} -o {outputd_dir}')
+    subprocess.run([
+        os.path.join(p2rank_path, 'prank'),
+        'predict', ds_path, 
+        '-o', outputd_dir
+    ])
+    #os.system(f'{p2rank_path}\\prank predict {ds_path} -o {outputd_dir}')
 
 
 if __name__ == '__main__':
