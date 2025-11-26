@@ -12,7 +12,6 @@ scrub = locate_file(from_path = Path.cwd().parent, query_path = "scrub.py", quer
 
 def prepare_ligand(ligand_smiles, ph = 7, skip_tautomer=False, skip_acidbase=False, ligand_name='test_ligand') -> Path:
     # Adapted from https://colab.research.google.com/drive/1cHSl78lBPUc_J1IZxLgN4GwD_ADmohVU?usp=sharing#scrollTo=qBQN6WzwvkGB
-    args = " "
     if skip_tautomer:
         args += "--skip_tautomers "
 
@@ -69,7 +68,7 @@ def prepare_ligands(args):
         print('running scrub')
         scrub_cmd = ['python', str(scrub), smi_path, '-o', sdf_path, '--ph', str(args.ph)]
         if len(scrub_additional_args) > 0:
-            scrub_cmd.extend(scrub_additional_args.split(' '))
+            scrub_cmd.extend(scrub_additional_args.split(' ')[:-1])
         
         subprocess.run(scrub_cmd, check=True)
         print('running mk')
