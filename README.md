@@ -18,8 +18,6 @@ conda activate dock
 
 ### 2. PDB Downloads
 If you wish to download PDBs via `download_pdbs.py`, you need to obtain an API key for AlphaFold Database. Create a `.txt` file containing the key at this path: `data/key.txt`.
-You will need to install the 
-
 
 ## Usage
 - NOTE: The scripts mentioned in this section expect to be run from the `source/` directory, so first run
