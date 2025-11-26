@@ -2,6 +2,7 @@ import subprocess
 import pandas as pd
 import numpy as np
 import argparse
+import os
 
 from utils import locate_file, l2_norm, get_path_root
 from pathlib import Path
@@ -139,6 +140,9 @@ def prepare_receptors(args) -> list[tuple[Path, Path]]:
 
     # Prepare MSA index residues
     target_indices = parse_msa_target_indices(args.target_idxs_path)
+
+    if not os.path.exists('../data/docking_files/'):
+        os.makedirs('../data/docking_files')
 
     out = []
     for pdb in pdbs:
