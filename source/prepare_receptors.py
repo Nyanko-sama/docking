@@ -13,6 +13,7 @@ from Bio.Align import MultipleSeqAlignment
 from Bio import AlignIO
 
 mk_prepare_receptor = locate_file(from_path = get_path_root(), query_path = "mk_prepare_receptor.py", query_name = "mk_prepare_receptor.py")
+reduce = locate_file(from_path = get_path_root(), query_path = "reduce.py", query_name = "reduce.py")
 
 def prepare_receptor(pdb_path : Path, pocket_id, center_coords, box_sizes) -> list[Path]:
     # Export receptor atoms
@@ -127,7 +128,7 @@ def calculate_box_size(residues, center, pocket):
 def protonate_pdb(pdb_path : Path, ph=7):
     out_path = f'../data/temp/{pdb_path.stem}_H.pdb'
     subprocess.run([
-        f'reduce -FLIP {pdb_path} > {out_path}'
+        f'{reduce} -FLIP {pdb_path} > {out_path}'
     ])
     #fixer = PDBFixer(str(pdb_path))
     #fixer.addMissingHydrogens(ph)
