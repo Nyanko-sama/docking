@@ -11,9 +11,10 @@ from pdbfixer import PDBFixer
 from openmm.app import PDBFile
 from Bio.Align import MultipleSeqAlignment
 from Bio import AlignIO
+from datetime import datetime
 
 mk_prepare_receptor = locate_file(from_path = get_path_root(), query_path = "mk_prepare_receptor.py", query_name = "mk_prepare_receptor.py")
-reduce = locate_file(from_path = Path(str(get_path_root().parent) + '/lib'), query_path = "reduce.py", query_name = "reduce.py")
+#reduce = locate_file(from_path = Path(str(get_path_root().parent) + '/lib'), query_path = "reduce.py", query_name = "reduce.py")
 
 def prepare_receptor(pdb_path : Path, pocket_id, center_coords, box_sizes) -> list[Path]:
     # Export receptor atoms
@@ -67,6 +68,21 @@ def find_best_pockets(struct : Structure, pockets : pd.DataFrame, msa : Multiple
         if msa[seq_row, i] != '-':
             residue_indices.append(ungapped_index[i])
 
+    if len(residue_indices) == 0:
+        # No matched residues
+
+        # Log the protein
+        if not os.path.exists(f'../temp/no_match_prots.txt'):
+            os.makedirs('../temp', exist_ok=True)
+        
+        with open(f'../temp/no_match_prots.txt', 'rw') as f:
+            lines = f.readlines()
+            lines.append(struct.id)
+            f.writelines(lines)
+
+        if mode == 'best':
+            return pockets.sort_values('score').iloc[0]
+
     # Calculate a centroid from the target residues
     residues = list(struct.get_residues())
     centroid = np.average([residues[i].center_of_mass() for i in residue_indices], axis=0)
@@ -74,10 +90,10 @@ def find_best_pockets(struct : Structure, pockets : pd.DataFrame, msa : Multiple
     # Mask pockets according to their distance from the centroid of selected residues 
     mask = []
     pockets = pockets.sort_values('score')
+    if verbose > 0:
+        print('Pocket distance from selected residue centroid, order as in the predictions .csv:')
     for _, pocket in pockets.iterrows():
         min_dist = np.inf
-        if verbose > 0:
-            print('Pocket distance from selected residue centroid, order as in the predictions .csv:')
         for residue in pocket['residue_ids'].split(' '):
             idx = int(residue[2:]) # residue ids have a pattern of A_123
             # Iterate through atoms of the residue to find the furthest one
@@ -94,6 +110,9 @@ def find_best_pockets(struct : Structure, pockets : pd.DataFrame, msa : Multiple
         # Always include the best pocket
         mask[0] = True
         
+    if verbose > 0:
+        print(mask)
+
     # All pockets are far, return the best one
     if np.sum(mask) == 0:
         return pockets.iloc[0]
