@@ -74,7 +74,7 @@ def find_best_pockets(struct : Structure, pockets : pd.DataFrame, msa : Multiple
         # Log the protein
         if not os.path.exists(f'../temp/no_match_prots.txt'):
             os.makedirs('../temp', exist_ok=True)
-            with open('../temp/no_match_prots.txt') as f:
+            with open('../temp/no_match_prots.txt', 'w') as f:
                 f.write(struct.id)
 
         else:
