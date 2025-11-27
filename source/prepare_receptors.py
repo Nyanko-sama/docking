@@ -75,11 +75,13 @@ def find_best_pockets(struct : Structure, pockets : pd.DataFrame, msa : Multiple
         if not os.path.exists(f'../temp/no_match_prots.txt'):
             os.makedirs('../temp', exist_ok=True)
         
-        with open(f'../temp/no_match_prots.txt', 'rw') as f:
+        with open(f'../temp/no_match_prots.txt', 'r') as f:
             lines = f.readlines()
             lines.append(struct.id)
-            f.writelines(lines)
 
+        with open(f'../temp/no_match_prots.txt', 'w') as f:
+            f.writelines(lines)
+            
         if mode == 'best':
             return pockets.sort_values('score').iloc[0]
 
@@ -109,10 +111,9 @@ def find_best_pockets(struct : Structure, pockets : pd.DataFrame, msa : Multiple
     if include_best:
         # Always include the best pocket
         mask[0] = True
-        
     if verbose > 0:
         print(mask)
-
+        
     # All pockets are far, return the best one
     if np.sum(mask) == 0:
         return pockets.iloc[0]
