@@ -47,7 +47,7 @@ def parse_msa_target_indices(path):
     return res
 
 def find_best_pockets(struct : Structure, pockets : pd.DataFrame, msa : MultipleSeqAlignment, id_to_msa_index : dict, target_indices, tol=20, mode = 'close_all',
-                      verbose=1):
+                      verbose=1, include_best=True):
 
     if mode == 'best':
         return pockets.sort_values('score').iloc[0]
@@ -73,6 +73,7 @@ def find_best_pockets(struct : Structure, pockets : pd.DataFrame, msa : Multiple
 
     # Mask pockets according to their distance from the centroid of selected residues 
     mask = []
+    pockets = pockets.sort_values('score')
     for _, pocket in pockets.iterrows():
         min_dist = np.inf
         if verbose > 0:
@@ -89,9 +90,13 @@ def find_best_pockets(struct : Structure, pockets : pd.DataFrame, msa : Multiple
             print(min_dist)
         mask.append(min_dist < tol)
     
+    if include_best:
+        # Always include the best pocket
+        mask[0] = True
+        
     # All pockets are far, return the best one
     if np.sum(mask) == 0:
-        return pockets.sort_values('score').iloc[0]
+        return pockets.iloc[0]
 
     # Return all close pockets
     if mode == 'close_all':
@@ -190,5 +195,6 @@ if __name__ == '__main__':
                         "close_all" same as above, but docks to all close pockets
                         ''')
     parser.add_argument('-v', '--verbose', default=1, type=int, help='Verbosity level')
+    parser.add_argument('--include_best', default=True, type=bool, help='Always include the best pocket in the selected pockets. Relevant for the "close" pocket selection mode.')
     args = parser.parse_args()
     prepare_receptors(args)
