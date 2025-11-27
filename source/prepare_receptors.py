@@ -171,7 +171,7 @@ def prepare_receptors(args) -> list[tuple[Path, Path]]:
         molecule = parser.get_structure(pdb.stem, pdb)
 
         # Determine the pocket for docking        
-        best = find_best_pockets(molecule, pockets, msa, id_to_msa_index, target_indices, tol=args.tol, mode=args.pocket_selection_mode)
+        best = find_best_pockets(molecule, pockets, msa, id_to_msa_index, target_indices, tol=args.tol, mode=args.pocket_selection_mode, include_best=args.include_best)
         residues = list(molecule.get_residues())
         if best.shape[0] > 0:
             for _, pocket in best.iterrows():
