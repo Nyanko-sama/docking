@@ -74,16 +74,18 @@ def find_best_pockets(struct : Structure, pockets : pd.DataFrame, msa : Multiple
         # Log the protein
         if not os.path.exists(f'../temp/no_match_prots.txt'):
             os.makedirs('../temp', exist_ok=True)
-        
-        with open(f'../temp/no_match_prots.txt', 'r') as f:
-            lines = f.readlines()
-            lines.append(struct.id)
+            with open('../temp/no_match_prots.txt') as f:
+                f.write(struct.id)
 
-        with open(f'../temp/no_match_prots.txt', 'w') as f:
-            f.writelines(lines)
+        else:
+            with open(f'../temp/no_match_prots.txt', 'r') as f:
+                lines = f.readlines()
+                lines.append(struct.id)
 
-        if mode == 'best':
-            return pockets.sort_values('score').iloc[0]
+            with open(f'../temp/no_match_prots.txt', 'w') as f:
+                f.writelines(lines)
+
+        return pockets.sort_values('score').iloc[0]
 
     # Calculate a centroid from the target residues
     residues = list(struct.get_residues())
