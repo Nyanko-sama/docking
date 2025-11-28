@@ -50,8 +50,9 @@ def parse_msa_target_indices(path):
 def find_best_pockets(struct : Structure, pockets : pd.DataFrame, msa : MultipleSeqAlignment, id_to_msa_index : dict, target_indices, tol=20, mode = 'close_all',
                       verbose=1, include_best=True):
 
+    pockets = pockets.sort_values('score', ascending=False)
     if mode == 'best':
-        return pockets.sort_values('score', ascending=False).iloc[0]
+        return pockets.iloc[0]
     
     # List containing a mapping from MSA indices to last preceding sequence index
     ungapped_index = []
@@ -85,7 +86,7 @@ def find_best_pockets(struct : Structure, pockets : pd.DataFrame, msa : Multiple
             with open(f'../temp/no_match_prots.txt', 'w') as f:
                 f.writelines(lines)
 
-        return pockets.sort_values('score', ascending=False).iloc[0]
+        return pockets.iloc[0]
 
     # Calculate a centroid from the target residues
     residues = list(struct.get_residues())
@@ -93,7 +94,7 @@ def find_best_pockets(struct : Structure, pockets : pd.DataFrame, msa : Multiple
 
     # Mask pockets according to their distance from the centroid of selected residues 
     mask = []
-    pockets = pockets.sort_values('score', ascending=False)
+
     if verbose > 0:
         print(pockets)
         print('Pocket distance from selected residue centroid, order as in the predictions .csv:')
