@@ -85,7 +85,7 @@ def find_best_pockets(struct : Structure, pockets : pd.DataFrame, msa : Multiple
             with open(f'../temp/no_match_prots.txt', 'w') as f:
                 f.writelines(lines)
 
-        return pockets.sort_values('score').iloc[0]
+        return pockets.sort_values('score', ascending=False).iloc[0]
 
     # Calculate a centroid from the target residues
     residues = list(struct.get_residues())
