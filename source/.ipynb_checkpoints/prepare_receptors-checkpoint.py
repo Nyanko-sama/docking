@@ -11,10 +11,9 @@ from pdbfixer import PDBFixer
 from openmm.app import PDBFile
 from Bio.Align import MultipleSeqAlignment
 from Bio import AlignIO
-from datetime import datetime
 
 mk_prepare_receptor = locate_file(from_path = get_path_root(), query_path = "mk_prepare_receptor.py", query_name = "mk_prepare_receptor.py")
-# reduce = locate_file(from_path = Path(str(get_path_root().parent) + '/lib'), query_path = "reduce.py", query_name = "reduce.py")
+reduce = locate_file(from_path = Path(str(get_path_root().parent) + '/lib'), query_path = "reduce.py", query_name = "reduce.py")
 
 def prepare_receptor(pdb_path : Path, pocket_id, center_coords, box_sizes) -> list[Path]:
     # Export receptor atoms
@@ -31,13 +30,8 @@ def prepare_receptor(pdb_path : Path, pocket_id, center_coords, box_sizes) -> li
         "--box_center", str(center_x), str(center_y), str(center_z),
         "--box_size", str(size_x), str(size_y), str(size_z)
     ]
-    try:
-        subprocess.run(command, check=True)
 
-    except subprocess.CalledProcessError as e:
-        print(e)
-        with open('../data/problem_pdbs.txt', 'a') as f:
-            f.write(str(pdb_path))
+    subprocess.run(command, check=True)
 
     return (Path(f'{out_path}.pdbqt'), Path(f'{out_path}.box.txt'))
 
@@ -53,13 +47,10 @@ def parse_msa_target_indices(path):
     return res
 
 def find_best_pockets(struct : Structure, pockets : pd.DataFrame, msa : MultipleSeqAlignment, id_to_msa_index : dict, target_indices, tol=20, mode = 'close_all',
-                      verbose=1, include_best=True):
-    if verbose > 0:
-        print(struct.id)
+                      verbose=1):
 
-    pockets = pockets.sort_values('score', ascending=False)
     if mode == 'best':
-        return pockets.iloc[0]
+        return pockets.sort_values('score').iloc[0]
     
     # List containing a mapping from MSA indices to last preceding sequence index
     ungapped_index = []
@@ -75,65 +66,37 @@ def find_best_pockets(struct : Structure, pockets : pd.DataFrame, msa : Multiple
     for i in target_indices:
         if msa[seq_row, i] != '-':
             residue_indices.append(ungapped_index[i])
-
+    
     if len(residue_indices) == 0:
-        # No matched residues
-
-        # Log the protein
-        if not os.path.exists(f'../temp/no_match_prots.txt'):
-            os.makedirs('../temp', exist_ok=True)
-            with open('../temp/no_match_prots.txt', 'w') as f:
-                f.write(struct.id)
-
-        else:
-            with open(f'../temp/no_match_prots.txt', 'r') as f:
-                lines = f.readlines()
-                lines.append(struct.id)
-
-            with open(f'../temp/no_match_prots.txt', 'w') as f:
-                f.writelines(lines)
-
-        return pockets.iloc[0]
-
+        # No residue overlap found, take the best pocket
+        return pockets.sort_values('score').iloc[0]
+    
     # Calculate a centroid from the target residues
     residues = list(struct.get_residues())
     centroid = np.average([residues[i].center_of_mass() for i in residue_indices], axis=0)
 
     # Mask pockets according to their distance from the centroid of selected residues 
     mask = []
-
     if verbose > 0:
         print('Pocket distance from selected residue centroid, order as in the predictions .csv:')
     for _, pocket in pockets.iterrows():
         min_dist = np.inf
+        
         for residue in pocket['residue_ids'].split(' '):
             idx = int(residue[2:]) # residue ids have a pattern of A_123
             # Iterate through atoms of the residue to find the furthest one
-            try:
-    	        for atom in residues[idx].get_atoms():
-                    c_dist = l2_norm(atom.get_coord() - centroid)
-                    if c_dist < min_dist:
-                        min_dist = c_dist
-            except IndexError as e:
-                print(e)
-                print(struct.id)
-                print(idx)
-                print(len(list(struct.get_residues())))
-                
+            for atom in residues[idx].get_atoms():
+                c_dist = l2_norm(atom.get_coord() - centroid)
+                if c_dist < min_dist:
+                    min_dist = c_dist
         #center_x, center_y, center_z = pocket['center_x'], pocket['center_y'], pocket['center_z']
         if verbose > 0:
             print(min_dist)
         mask.append(min_dist < tol)
     
-    if include_best:
-        # Always include the best pocket
-        mask[0] = True
-    if verbose > 0:
-        print(mask)
-        
     # All pockets are far, return the best one
     if np.sum(mask) == 0:
-        return pockets.iloc[0]
+        return pockets.sort_values('score').iloc[0]
 
     # Return all close pockets
     if mode == 'close_all':
@@ -141,7 +104,7 @@ def find_best_pockets(struct : Structure, pockets : pd.DataFrame, msa : Multiple
     
     # Return the pocket from the close pockets that has the highest score
     else:
-        return pockets[mask].iloc[0]
+        return pockets[mask].sort_values('score').iloc[0]
     
 def create_msa_index_table(msa : MultipleSeqAlignment):
     res = {}
@@ -170,18 +133,13 @@ def calculate_box_size(residues, center, pocket):
 def protonate_pdb(pdb_path : Path, ph=7):
     out_path = f'../data/temp/{pdb_path.stem}_H.pdb'
 
-
+    #subprocess.run([
+    #    reduce, '-FLIP', pdb_path, '>', out_path
+    #])
     fixer = PDBFixer(str(pdb_path))
     fixer.findNonstandardResidues()
-    print(fixer.nonstandardResidues)
     fixer.replaceNonstandardResidues()
     fixer.removeHeterogens(keepWater=False)
-    fixer.findMissingResidues()
-    fixer.findMissingAtoms()
-    fixer.addMissingAtoms(seed=42)
-    #subprocess.run([
-    #   reduce, '-FLIP', pdb_path, '>', out_path
-    ##])
     fixer.addMissingHydrogens(ph)
 
     PDBFile.writeFile(fixer.topology, fixer.positions, open(out_path, 'w'))
@@ -212,8 +170,8 @@ def prepare_receptors(args) -> list[tuple[Path, Path]]:
         molecule = parser.get_structure(pdb.stem, pdb)
 
         # Determine the pocket for docking        
-        best = find_best_pockets(molecule, pockets, msa, id_to_msa_index, target_indices, tol=args.tol, mode=args.pocket_selection_mode, include_best=args.include_best)
-        residues = {r.get_id()[1] : r for r in list(molecule.get_residues())}
+        best = find_best_pockets(molecule, pockets, msa, id_to_msa_index, target_indices, tol=args.tol, mode=args.pocket_selection_mode)
+        residues = list(molecule.get_residues())
         if len(best.shape) > 1:
             for _, pocket in best.iterrows():
                 center = pocket['center_x'], pocket['center_y'], pocket['center_z']
@@ -242,6 +200,5 @@ if __name__ == '__main__':
                         "close_all" same as above, but docks to all close pockets
                         ''')
     parser.add_argument('-v', '--verbose', default=1, type=int, help='Verbosity level')
-    parser.add_argument('--include_best', default=True, type=bool, help='Always include the best pocket in the selected pockets. Relevant for the "close" pocket selection mode.')
     args = parser.parse_args()
     prepare_receptors(args)
