@@ -25,11 +25,15 @@ def dock_ligands(receptor_info : list[tuple[Path, Path]], ligands_folder):
         
     else:
         ligands_path_cmd =  Path(f'../data/{ligands_folder}/*.pdbqt')
-
+    
+    ligands = [Path(p).stem for p in glob(f'..\data\{ligands_folder}\*.pdbqt')]
     for receptor, config in receptor_info:
         out_path = f'../output/{receptor.stem}'.removesuffix('_prepared')
         if not os.path.exists(out_path):
             os.makedirs(out_path, exist_ok=True)
+        elif all([os.path.exists(f'{out_path}/{lig}_out.pdbqt' for lig in ligands)]):
+            print(f'Already finished {receptor.stem}, continuing..')
+            continue
 
         print(f'Docking ligands to {receptor.stem}...')
         command = ' '.join([
