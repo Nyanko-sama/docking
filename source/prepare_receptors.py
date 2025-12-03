@@ -179,10 +179,10 @@ def protonate_pdb(pdb_path : Path, ph=7):
     fixer.findMissingResidues()
     fixer.findMissingAtoms()
     fixer.addMissingAtoms(seed=42)
-    subprocess.run([
-       reduce, '-FLIP', pdb_path, '>', out_path
-    ])
-    # fixer.addMissingHydrogens(ph)
+    # subprocess.run([
+    #    reduce, '-FLIP', pdb_path, '>', out_path
+    # ])
+    fixer.addMissingHydrogens(ph)
 
     PDBFile.writeFile(fixer.topology, fixer.positions, open(out_path, 'w'))
     return Path(out_path)
