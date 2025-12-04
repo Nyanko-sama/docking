@@ -46,6 +46,7 @@ cd source
             - Then, a centroid is computed from the selected residues, which is hopefully close to the external part of the membrane
             - For each pocket, it computes the distance between the closest atom in the pocket and the centroid
             - If the pocket is close enough (<= 20 A), it is considered for docking
+            - By default, we always dock to the highest scoring pocket as well, regardless of distance.
         - use `python run_docking.py -h` to get information about the other modes
     - Pocket size is computed automatically according to the p2rank pocket prediction
     - Each protonated receptor-pocket pair is then passed to `mk_prepare_receptor.py`
