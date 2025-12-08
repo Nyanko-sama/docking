@@ -12,19 +12,19 @@ scrub = locate_file(from_path = Path.cwd().parent, query_path = "scrub.py", quer
 
 def prepare_ligand(ligand_smiles, ph = 7, skip_tautomer=False, skip_acidbase=False, ligand_name='test_ligand') -> Path:
     # Adapted from https://colab.research.google.com/drive/1cHSl78lBPUc_J1IZxLgN4GwD_ADmohVU?usp=sharing#scrollTo=qBQN6WzwvkGB
+    args = []
     if skip_tautomer:
-        args += "--skip_tautomers "
+        args.append("--skip_tautomers")
 
     if skip_acidbase:
-        args += "--skip_acidbase "
+        args.append("--skip_acidbase")
 
     ligand_name = re.sub(r'-', '_', ligand_name)
     ligandSDF = f"../data/temp/{ligand_name}_scrubbed.sdf"
     output_path = f'../data/prepared_ligands/{ligand_name}.pdbqt'
     # Scrub the molecule
-    subprocess.run([
-        'python', str(scrub), ligand_smiles, '-o', ligandSDF, '--ph', str(ph), args
-    ], check=True)
+    scrub_cmd = ['python', str(scrub), ligand_smiles, '-o', ligandSDF, '--ph', str(ph)] + args
+    subprocess.run(scrub_cmd, check=True)
 
     # Runs meeko mk_prepare_ligand with the following arguments
     subprocess.run([
@@ -35,11 +35,14 @@ def prepare_ligand(ligand_smiles, ph = 7, skip_tautomer=False, skip_acidbase=Fal
 
 
 def standardize_name(ligand_name):
+    if pd.isna(ligand_name):
+        return 'unknown_ligand'
+    ligand_name = str(ligand_name)
     ligand_name = re.sub(r'\'"', '', ligand_name)
     return re.sub(r'[-, ]', '_', ligand_name)
 
 def prepare_ligands(args):
-    ligands = pd.read_csv(args.ligands_path, sep='\t')
+    ligands = pd.read_csv(args.ligands_path)
     ligands = ligands.reindex(['smiles', 'name'], axis=1)
     ligands['name'] = ligands['name'].apply(standardize_name)
 
@@ -77,7 +80,7 @@ def prepare_ligands(args):
         ], check=True)
         
     else:
-        prepare_ligand(ligands['smiles'], args.ph, args.tautomers, args.skip_acidbase, ligands['name'])
+        prepare_ligand(ligands['smiles'].iloc[0], args.ph, args.skip_tautomers, args.skip_acidbase, ligands['name'].iloc[0])
 
     return ligands['name']
 
