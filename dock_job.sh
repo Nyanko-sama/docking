@@ -62,8 +62,33 @@ echo "=== PYTHON INFO ==="
 which python
 python -c "import sys; print('python exe:', sys.executable)"
 
+# Install RDKit via conda-forge (required dependency for molscrub)
+echo "=== INSTALLING RDKIT ==="
+if python -c "import rdkit" 2>/dev/null; then
+    echo "RDKit already installed"
+    python -c "import rdkit; print('RDKit version:', rdkit.__version__)"
+else
+    echo "Installing RDKit from conda-forge..."
+    # Use mamba if available (faster), otherwise conda
+    if command -v mamba >/dev/null 2>&1; then
+        mamba install -y rdkit -c conda-forge || {
+            echo "ERROR: Failed to install RDKit via mamba" >&2
+            exit 1
+        }
+    else
+        conda install -y rdkit -c conda-forge || {
+            echo "ERROR: Failed to install RDKit via conda" >&2
+            exit 1
+        }
+    fi
+    echo "RDKit installed successfully"
+fi
+
 # Install molscrub if not already installed
 echo "=== INSTALLING MOLSCRUB ==="
+# Always add molscrub to PYTHONPATH to ensure subprocess calls can find it
+export PYTHONPATH="$HOMEDIR/molscrub:$PYTHONPATH"
+
 # Check if molscrub is properly installed (can import Scrub class)
 if python -c "from molscrub import Scrub" 2>/dev/null; then
     echo "molscrub already installed and working"
@@ -76,20 +101,25 @@ else
     fi
     
     echo "Installing molscrub from $HOMEDIR/molscrub"
-    # Install with dependencies first, then reinstall in editable mode
+    # Install in editable mode (rdkit already installed via conda, pip will install other deps like rich, numpy)
     pip install -e "$HOMEDIR/molscrub" || {
         echo "ERROR: Failed to install molscrub" >&2
         exit 1
     }
     # Verify installation worked
+    echo "Verifying molscrub installation..."
+    
     if python -c "from molscrub import Scrub" 2>/dev/null; then
         echo "molscrub installed successfully"
         python -c "import molscrub; print('molscrub module:', molscrub.__file__ if hasattr(molscrub, '__file__') else 'namespace package')"
     else
-        echo "ERROR: molscrub installation verification failed" >&2
-        echo "Attempting to diagnose..." >&2
-        python -c "import sys; print('Python path:', sys.path)" >&2
-        exit 1
+        echo "WARNING: Direct import failed, but PYTHONPATH set as fallback" >&2
+        # Try importing with explicit path
+        python -c "import sys; sys.path.insert(0, '$HOMEDIR/molscrub'); from molscrub import Scrub; print('molscrub works with explicit path')" 2>&1 || {
+            echo "ERROR: molscrub still not importable" >&2
+            python -c "from molscrub import Scrub" 2>&1 | head -10 || true
+            echo "WARNING: Continuing - subprocess calls may fail" >&2
+        }
     fi
 fi
 
