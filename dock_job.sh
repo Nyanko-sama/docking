@@ -57,11 +57,24 @@ if ! command -v python >/dev/null 2>&1; then
     exit 1
 fi
 
-# Debug info to confirm env is correct (keep for now)
+# Debug info to confirm env is correct
 echo "=== PYTHON INFO ==="
 which python
 python -c "import sys; print('python exe:', sys.executable)"
-python -c "import molscrub; print('molscrub module:', molscrub.__file__)"
+
+# Install molscrub if not already installed
+echo "=== INSTALLING MOLSCRUB ==="
+if python -c "import molscrub" 2>/dev/null; then
+    echo "molscrub already installed"
+    python -c "import molscrub; print('molscrub module:', molscrub.__file__)"
+else
+    echo "Installing molscrub from $HOMEDIR/molscrub"
+    pip install -e "$HOMEDIR/molscrub" || {
+        echo "ERROR: Failed to install molscrub" >&2
+        exit 1
+    }
+    python -c "import molscrub; print('molscrub module:', molscrub.__file__)"
+fi
 
 cd source || {
     echo "ERROR: Failed to cd to source directory" >&2
