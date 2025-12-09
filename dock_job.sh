@@ -20,7 +20,6 @@ export LOCALCACHEDIR=$SCRATCHDIR
 cd $HOMEDIR
 cd prankdock
 module add mambaforge
-mamba env create -f environment.yaml
 mamba activate dock
 cd source
 echo "Running full pipeline with array index $PBS_ARRAY_INDEX"
