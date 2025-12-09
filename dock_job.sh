@@ -23,5 +23,8 @@ module add mambaforge
 mamba env create -f environment.yaml
 mamba activate dock
 cd source
-echo "Running job with array index $PBS_ARRAY_INDEX"
+echo "Running full pipeline with array index $PBS_ARRAY_INDEX"
+python run_p2rank.py
+python prepare_ligands.py --timeout 240
+python prepare_receptors.py
 python run_docking.py -d ../data/splits_$PBS_ARRAY_INDEX
