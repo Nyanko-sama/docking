@@ -64,16 +64,33 @@ python -c "import sys; print('python exe:', sys.executable)"
 
 # Install molscrub if not already installed
 echo "=== INSTALLING MOLSCRUB ==="
-if python -c "import molscrub" 2>/dev/null; then
-    echo "molscrub already installed"
-    python -c "import molscrub; print('molscrub module:', molscrub.__file__)"
+# Check if molscrub is properly installed (can import Scrub class)
+if python -c "from molscrub import Scrub" 2>/dev/null; then
+    echo "molscrub already installed and working"
+    python -c "import molscrub; print('molscrub module:', molscrub.__file__ if hasattr(molscrub, '__file__') else 'namespace package')"
 else
+    # Check if molscrub directory exists
+    if [ ! -d "$HOMEDIR/molscrub" ]; then
+        echo "ERROR: molscrub directory not found at $HOMEDIR/molscrub" >&2
+        exit 1
+    fi
+    
     echo "Installing molscrub from $HOMEDIR/molscrub"
+    # Install with dependencies first, then reinstall in editable mode
     pip install -e "$HOMEDIR/molscrub" || {
         echo "ERROR: Failed to install molscrub" >&2
         exit 1
     }
-    python -c "import molscrub; print('molscrub module:', molscrub.__file__)"
+    # Verify installation worked
+    if python -c "from molscrub import Scrub" 2>/dev/null; then
+        echo "molscrub installed successfully"
+        python -c "import molscrub; print('molscrub module:', molscrub.__file__ if hasattr(molscrub, '__file__') else 'namespace package')"
+    else
+        echo "ERROR: molscrub installation verification failed" >&2
+        echo "Attempting to diagnose..." >&2
+        python -c "import sys; print('Python path:', sys.path)" >&2
+        exit 1
+    fi
 fi
 
 cd source || {
