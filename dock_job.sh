@@ -2,7 +2,7 @@
 
 #PBS -N docking
 #PBS -l select=1:ncpus=2:mem=8gb:scratch_local=20gb:cluster=alfrid
-#PBS -l walltime=6:00:00
+#PBS -l walltime=24:00:00
 #PBS -m ae
 
 # Path to docking project root - adjust if needed

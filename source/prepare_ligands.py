@@ -45,12 +45,47 @@ def prepare_ligand(ligand_smiles, ph=7, skip_tautomer=False, skip_acidbase=False
     return Path(output_path)
 
 
-def standardize_name(ligand_name):
+def standardize_name(ligand_name, max_length=200):
+    """
+    Sanitize ligand name for use as filename.
+    Removes/replaces problematic characters and truncates if too long.
+    """
     if pd.isna(ligand_name):
         return 'unknown_ligand'
+    
     ligand_name = str(ligand_name)
-    ligand_name = re.sub(r'\'"', '', ligand_name)
-    return re.sub(r'[-, ]', '_', ligand_name)
+    
+    # Remove quotes
+    ligand_name = re.sub(r'[\'"]', '', ligand_name)
+    
+    # Replace problematic characters with underscores
+    # This includes: parentheses, brackets, semicolons, slashes, colons, etc.
+    ligand_name = re.sub(r'[()\[\];/\\:<>|?*]', '_', ligand_name)
+    
+    # Replace spaces, dashes, commas, and other separators with underscores
+    ligand_name = re.sub(r'[-\s,]+', '_', ligand_name)
+    
+    # Remove multiple consecutive underscores
+    ligand_name = re.sub(r'_+', '_', ligand_name)
+    
+    # Remove leading/trailing underscores
+    ligand_name = ligand_name.strip('_')
+    
+    # If empty after sanitization, use a default name
+    if not ligand_name:
+        ligand_name = 'unknown_ligand'
+    
+    # Truncate if too long, but try to preserve meaningful part
+    if len(ligand_name) > max_length:
+        # Try to truncate at a word boundary (underscore)
+        truncated = ligand_name[:max_length]
+        last_underscore = truncated.rfind('_')
+        if last_underscore > max_length * 0.7:  # If we can keep at least 70% of the name
+            ligand_name = truncated[:last_underscore]
+        else:
+            ligand_name = truncated
+    
+    return ligand_name
 
 
 def prepare_ligands(args):
