@@ -137,8 +137,6 @@ set -e  # Exit on any error
 # if needed:
 python run_p2rank.py --p2rank_path ../p2rank_2.5.1
 
-python prepare_ligands.py --timeout 240
-
 python prepare_receptors.py
 
 python run_docking.py -d ../data/splits_$PBS_ARRAY_INDEX

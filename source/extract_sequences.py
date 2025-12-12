@@ -38,7 +38,18 @@ def extract_seqs(pdb_folder, output_folder):
     for pdb_path in glob(f'{pdb_folder}/*.pdb', recursive=True):
         path = Path(pdb_path)
         struct = parser.get_structure(path.stem, pdb_path)
-        tuple_rec = (path.stem, ''.join([residue_translation[r.get_resname()] for r in struct.get_residues()]))
+        # Extract sequence, handling non-standard residues by using 'X' or skipping them
+        sequence_chars = []
+        for r in struct.get_residues():
+            resname = r.get_resname()
+            if resname in residue_translation:
+                sequence_chars.append(residue_translation[resname])
+            else:
+                # Skip non-standard residues (heteroatoms, ligands, etc.)
+                # Uncomment the next line if you want to use 'X' for unknown residues instead
+                # sequence_chars.append('X')
+                pass
+        tuple_rec = (path.stem, ''.join(sequence_chars))
         fasta_rec = SeqRecord(Seq(tuple_rec[1]), tuple_rec[0], description='')
         records.append(tuple_rec)
         fasta_recs.append(fasta_rec)
