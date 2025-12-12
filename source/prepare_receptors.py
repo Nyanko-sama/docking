@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import argparse
 import os
+import sys
 
 from utils import locate_file, l2_norm, get_path_root
 from pathlib import Path
@@ -42,12 +43,19 @@ def prepare_receptor(pdb_path : Path, pocket_id, center_coords, box_sizes) -> li
     return (Path(f'{out_path}.pdbqt'), Path(f'{out_path}.box.txt'))
 
 def parse_msa_target_indices(path):
+    """Parse MSA target indices from a file. Returns empty list if file doesn't exist."""
+    if not os.path.exists(path):
+        return []
+    
     with open(path, 'r') as f:
         lines = f.readlines()
 
     res = []
     for line in lines:
-        left, right = line.strip().split('-')
+        line = line.strip()
+        if not line:  # Skip empty lines
+            continue
+        left, right = line.split('-')
         res.extend(list(range(int(left), int(right))))
 
     return res
@@ -196,6 +204,18 @@ def prepare_receptors(args) -> list[tuple[Path, Path]]:
 
     # Prepare MSA index residues
     target_indices = parse_msa_target_indices(args.target_idxs_path)
+    
+    # Warn if target_indices are needed but not provided
+    if args.pocket_selection_mode in ['close_best', 'close_all'] and len(target_indices) == 0:
+        if not os.path.exists(args.target_idxs_path):
+            print(f"WARNING: target_idxs_path '{args.target_idxs_path}' not found.", file=sys.stderr)
+            print(f"WARNING: MSA index ranges are required for '{args.pocket_selection_mode}' mode.", file=sys.stderr)
+            print(f"WARNING: Switching to 'best' mode (using highest scoring pocket only).", file=sys.stderr)
+            args.pocket_selection_mode = 'best'
+        else:
+            print(f"WARNING: target_idxs_path '{args.target_idxs_path}' exists but is empty.", file=sys.stderr)
+            print(f"WARNING: Switching to 'best' mode (using highest scoring pocket only).", file=sys.stderr)
+            args.pocket_selection_mode = 'best'
 
     if not os.path.exists('../data/docking_files/'):
         os.makedirs('../data/docking_files')
