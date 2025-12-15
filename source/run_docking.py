@@ -49,8 +49,18 @@ def dock_ligands(receptor_info : list[tuple[Path, Path]], ligands_folder):
         print(f'Output saved to {out_path}')
 
 def run_docking(args):
+    if not os.path.exists(args.dock_files_path):
+        print(f"ERROR: Docking files directory '{args.dock_files_path}' does not exist.", file=sys.stderr)
+        sys.exit(1)
+    
     receptors = list(glob(f'{args.dock_files_path}/*.pdbqt'))
     receptors = [Path(r) for r in receptors]
+    
+    if len(receptors) == 0:
+        print(f"WARNING: No receptor .pdbqt files found in '{args.dock_files_path}'", file=sys.stderr)
+        print(f"Make sure prepare_receptors.py has been run successfully.", file=sys.stderr)
+        return
+    
     configs = [f'{args.dock_files_path}/{rec.stem}.box.txt' for rec in receptors]
     receptor_info = list(zip(receptors, configs))
     dock_ligands(receptor_info, args.ligands_path)

@@ -455,7 +455,7 @@ if __name__ == '__main__':
     parser.add_argument('--msa_path', default='../data/aligned_sequences.fasta', help='MSA for the receptors, used for selecting pockets outside the membrane.')
     parser.add_argument('--target_idxs_path', default='../data/msa_index_ranges.txt', help='File containing indices to the MSA for membrane pocket selection')
     parser.add_argument('--tol', default=20, type=int, help='Maximum pocket center distance from the centroid of residues matched to the MSA indices for membrane pocket selection. Pockets further away are not considered when determining the best pocket.')
-    parser.add_argument('--pocket_selection_mode', default='close_all', choices=['best', 'close_best', 'close_all'], help='''
+    parser.add_argument('--pocket_selection_mode', default='best', choices=['best', 'close_best', 'close_all'], help='''
                         "best" mode simply takes the highest scoring pocket from the P2rank prediction.
                         "close_best" mode only considers the best pocket from ones that are close to the external part of the protein, determined via the indices from target_idxs_path
                         "close_all" same as above, but docks to all close pockets

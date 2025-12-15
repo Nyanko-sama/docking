@@ -139,4 +139,10 @@ python run_p2rank.py --p2rank_path ../p2rank_2.5.1
 
 python prepare_receptors.py
 
-python run_docking.py -d ../data/splits_$PBS_ARRAY_INDEX
+# Use splits directory if PBS_ARRAY_INDEX is set, otherwise use default docking_files
+if [ -n "$PBS_ARRAY_INDEX" ] && [ -d "../data/splits_$PBS_ARRAY_INDEX" ]; then
+    python run_docking.py -d ../data/splits_$PBS_ARRAY_INDEX
+else
+    echo "PBS_ARRAY_INDEX not set or splits directory doesn't exist, using default docking_files directory"
+    python run_docking.py -d ../data/docking_files
+fi
