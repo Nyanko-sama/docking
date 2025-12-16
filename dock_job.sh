@@ -2,7 +2,7 @@
 
 #PBS -N docking
 #PBS -l select=1:ncpus=2:mem=8gb:scratch_local=20gb:cluster=alfrid
-#PBS -l walltime=24:00:00
+#PBS -l walltime=48:00:00
 #PBS -m ae
 
 # Path to docking project root - adjust if needed
@@ -140,8 +140,10 @@ python run_p2rank.py --p2rank_path ../p2rank_2.5.1
 python prepare_receptors.py
 
 # Use splits directory if PBS_ARRAY_INDEX is set, otherwise use default docking_files
+# Speed options: -e for exhaustiveness (lower=faster, default=32), -n for num_modes (lower=faster, default=9)
+# Example for faster docking: python run_docking.py -e 16 -n 5
 if [ -n "$PBS_ARRAY_INDEX" ] && [ -d "../data/splits_$PBS_ARRAY_INDEX" ]; then
-    python run_docking.py -d ../data/splits_$PBS_ARRAY_INDEX
+    python run_docking.py -d ../data/splits_$PBS_ARRAY_INDEX -e 16 -n 3
 else
     echo "PBS_ARRAY_INDEX not set or splits directory doesn't exist, using default docking_files directory"
     python run_docking.py -d ../data/docking_files
